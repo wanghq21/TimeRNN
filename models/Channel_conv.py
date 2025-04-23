@@ -936,11 +936,15 @@ class Embedding(nn.Module):
 
         if self.temporal_function == 'patch':
             self.temporal_patch = nn.Sequential(
-                RMSNorm([self.enc_in,self.seq_len]),
-                nn.Linear(self.seq_len, configs.d_model),
+                RMSNorm([self.seq_len,self.enc_in]),
+                # nn.Linear(self.seq_len, configs.d_model),
+                torch.nn.Conv1d(in_channels=self.seq_len, out_channels=configs.d_model,
+                    kernel_size=1,stride=1,padding=0),
                 nn.SiLU(),
                 nn.Dropout(configs.dropout),
-                nn.Linear(configs.d_model, self.d_model),
+                # nn.Linear(configs.d_model, self.d_model),
+                torch.nn.Conv1d(in_channels=configs.d_model, out_channels=self.seq_len,
+                    kernel_size=1,stride=1,padding=0),
                 nn.Dropout(configs.dropout)
             )
             self.patch = configs.patch
@@ -962,50 +966,51 @@ class Embedding(nn.Module):
                 nn.Linear(self.patch[i]*4, self.patch_num[i]),
                 nn.Dropout(configs.dropout)
             )  for i in range(len(self.patch))])
-            self.temporal1_season = torch.nn.ModuleList([nn.Sequential(
-                RMSNorm([self.patch_num[i],self.patch[i]]),
-                nn.Linear(self.patch[i], self.patch[i]*4),
-                nn.SiLU(),
-                nn.Dropout(configs.dropout),
-                nn.Linear(self.patch[i]*4, self.patch[i]),
-                nn.Dropout(configs.dropout)
-            ) for i in range(len(self.patch))])
-            self.temporal2_season = torch.nn.ModuleList([nn.Sequential(
-                # RMSNorm([self.patch[i],self.patch_num[i]]),
-                nn.Linear(self.patch_num[i], self.patch[i]*4),
-                nn.SiLU(),
-                nn.Dropout(configs.dropout),
-                nn.Linear(self.patch[i]*4, self.patch_num[i]),
-                nn.Dropout(configs.dropout)
-            )  for i in range(len(self.patch))])
-            self.linear_patch = torch.nn.ModuleList([nn.Linear(self.seq_len, self.d_model) 
-                    for i in range(len(self.patch))])
+            # self.temporal1_season = torch.nn.ModuleList([nn.Sequential(
+            #     RMSNorm([self.patch_num[i],self.patch[i]]),
+            #     nn.Linear(self.patch[i], self.patch[i]*4),
+            #     nn.SiLU(),
+            #     nn.Dropout(configs.dropout),
+            #     nn.Linear(self.patch[i]*4, self.patch[i]),
+            #     nn.Dropout(configs.dropout)
+            # ) for i in range(len(self.patch))])
+            # self.temporal2_season = torch.nn.ModuleList([nn.Sequential(
+            #     RMSNorm([self.patch[i],self.patch_num[i]]),
+            #     nn.Linear(self.patch_num[i], self.patch[i]*4),
+            #     nn.SiLU(),
+            #     nn.Dropout(configs.dropout),
+            #     nn.Linear(self.patch[i]*4, self.patch_num[i]),
+            #     nn.Dropout(configs.dropout)
+            # )  for i in range(len(self.patch))])
+            self.linear_patch = torch.nn.Conv1d(in_channels=self.seq_len, out_channels=configs.d_model,
+                    kernel_size=1,stride=1,padding=0)
 
 
     def forward(self, x):
-        B, L, D = x.shape
+        B, L, C = x.shape
         if self.temporal_function == 'patch':
-            add = torch.zeros([B, D, self.d_model], device=x.device)
+            x1 = x
+            # add = torch.zeros([B, D, self.d_model], device=x.device)
             for i in range(len(self.patch)):
                 if self.patch[i] == 1:
-                    add = add +  self.temporal_patch((x).transpose(1, 2)) 
+                    x = x +  self.temporal_patch(x1)
                 else:
-                    season, x_group = self.decomp[i](x)
-                    x_group = x
+                    # season, x_group = self.decomp[i](x)
+                    x_group = x1
                     x_group = x_group.permute(0,2,1)
-                    x_group = x_group.reshape(B, D, self.patch_num[i], self.patch[i])
+                    x_group = x_group.reshape(B, C, self.patch_num[i], self.patch[i])
                     x_group = x_group + self.temporal1[i](x_group)
                     x_group = x_group.permute(0,1,3,2)
                     x_group = x_group + self.temporal2[i](x_group)
-                    x_group = x_group.permute(0,1,3,2).reshape(B, D, -1).permute(0,2,1)
-                    season = season.permute(0,2,1)
-                    season = season.reshape(B, D, self.patch_num[i], self.patch[i])
-                    season = season + self.temporal1_season[i](season)
-                    season = season.permute(0,1,3,2)
-                    season = season + self.temporal2_season[i](season)
-                    season = season.permute(0,1,3,2).reshape(B, D, -1).permute(0,2,1)
-                    add = add + self.linear_patch[i]((x_group + season).permute(0,2,1))  
-            x = add.permute(0,2,1)
+                    x_group = x_group.permute(0,1,3,2).reshape(B, C, -1).permute(0,2,1)
+                    # season = season.permute(0,2,1)
+                    # season = season.reshape(B, D, self.patch_num[i], self.patch[i])
+                    # season = season + self.temporal1_season[i](season)
+                    # season = season.permute(0,1,3,2)
+                    # season = season + self.temporal2_season[i](season)
+                    # season = season.permute(0,1,3,2).reshape(B, D, -1).permute(0,2,1)
+            x = self.linear_patch(x)  
+            # x = add.permute(0,2,1)
 
         if self.temporal_function == 'down':
             # x = x.permute(0,2,1)
