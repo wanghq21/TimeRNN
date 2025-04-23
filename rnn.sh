@@ -62,7 +62,7 @@ e_layers=2
 d_model=512
 d_ff=2048
 # npatch=5
-for len in  96
+for len in  720
 do
   python3 -u run.py \
     --task_name long_term_forecast \
