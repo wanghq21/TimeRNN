@@ -953,7 +953,7 @@ class Embedding(nn.Module):
             self.temporal1 = torch.nn.ModuleList([nn.Sequential(
                 RMSNorm([self.patch_num[i],self.patch[i]]),
                 nn.Linear(self.patch[i], self.patch[i]*4),
-                nn.SiLU(),
+                nn.ReLU(),
                 nn.Dropout(configs.dropout),
                 nn.Linear(self.patch[i]*4, self.patch[i]),
                 # nn.Dropout(configs.dropout)
@@ -961,7 +961,7 @@ class Embedding(nn.Module):
             self.temporal2 = torch.nn.ModuleList([nn.Sequential(
                 RMSNorm([self.patch[i],self.patch_num[i]]),
                 nn.Linear(self.patch_num[i], self.patch[i]*4),
-                nn.SiLU(),
+                nn.ReLU(),
                 nn.Dropout(configs.dropout),
                 nn.Linear(self.patch[i]*4, self.patch_num[i]),
                 # nn.Dropout(configs.dropout)
@@ -969,7 +969,7 @@ class Embedding(nn.Module):
             self.temporal1_season = torch.nn.ModuleList([nn.Sequential(
                 RMSNorm([self.patch_num[i],self.patch[i]]),
                 nn.Linear(self.patch[i], self.patch[i]*4),
-                nn.SiLU(),
+                nn.ReLU(),
                 nn.Dropout(configs.dropout),
                 nn.Linear(self.patch[i]*4, self.patch[i]),
                 # nn.Dropout(configs.dropout)
@@ -977,7 +977,7 @@ class Embedding(nn.Module):
             self.temporal2_season = torch.nn.ModuleList([nn.Sequential(
                 RMSNorm([self.patch[i],self.patch_num[i]]),
                 nn.Linear(self.patch_num[i], self.patch[i]*4),
-                nn.SiLU(),
+                nn.ReLU(),
                 nn.Dropout(configs.dropout),
                 nn.Linear(self.patch[i]*4, self.patch_num[i]),
                 # nn.Dropout(configs.dropout)
